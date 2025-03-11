@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Management System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto p-4">
+        <h1 class="text-3xl font-bold mb-4">Test Management System</h1>
+
+        <div class="bg-white p-6 rounded-lg shadow-lg mb-6">
+            <h2 class="text-2xl font-semibold mb-4">Create Test Case</h2>
+            <form id="test-case-form">
+                <div class="mb-4">
+                    <label for="name">Name</label>
+                    <input type="text" id="name" class="w-full p-2 border border-gray-300 rounded-lg" required>
+                </div>
+                <div class="mb-4">
+                    <label for="description">Description</label>
+                    <textarea id="description" class="w-full p-2 border border-gray-300 rounded-lg" required></textarea>
+                </div>
+
+                <h2 class="text-xl font-semibold mb-2">Steps</h2>
+                <div id="steps-container"></div>
+
+                <button type="button" id="add-step" class="bg-green-500 text-white px-4 py-2 rounded-lg">Add Step</button>
+                <button type="button" id="save-test-case" class="bg-blue-500 text-white px-4 py-2 rounded-lg mt-4">Save Test Case</button>
+            </form>
+        </div>
+
+        <div id="test-cases-section" class="bg-white p-6 rounded-lg shadow-lg">
+            <h2 class="text-2xl font-semibold mb-4">Saved Test Cases</h2>
+            <table class="w-full border-collapse">
+                <thead>
+                    <tr>
+                        <th class="border p-2">Name</th>
+                        <th class="border p-2">Description</th>
+                        <th class="border p-2">Steps</th>
+                        <th class="border p-2">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="test-cases-table-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const apiUrl = 'http://127.0.0.1:5000/testcases';
+
+        document.getElementById('add-step').addEventListener('click', function () {
+            const stepsContainer = document.getElementById('steps-container');
+            const stepDiv = document.createElement('div');
+            stepDiv.classList.add('mb-2');
+            stepDiv.innerHTML = `
+                <input type="text" class="step-description w-full p-2 border border-gray-300 rounded-lg mb-1" placeholder="Step Description" required>
+                <input type="text" class="step-expected w-full p-2 border border-gray-300 rounded-lg mb-1" placeholder="Expected Result" required>
+            `;
+            stepsContainer.appendChild(stepDiv);
+        });
+
+        document.getElementById('save-test-case').addEventListener('click', async function () {
+            const name = document.getElementById('name').value;
+            const description = document.getElementById('description').value;
+
+            const steps = [];
+            document.querySelectorAll('.step-description').forEach((desc, index) => {
+                const expected = document.querySelectorAll('.step-expected')[index].value;
+                steps.push({ description: desc.value, expected_result: expected });
+            });
+
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name, description, steps })
+            });
+
+            if (response.ok) {
+                loadTestCases();
+                document.getElementById('test-case-form').reset();
+                document.getElementById('steps-container').innerHTML = '';
+            }
+        });
+
+        async function loadTestCases() {
+            const response = await fetch(apiUrl);
+            const testCases = await response.json();
+
+            const tableBody = document.getElementById('test-cases-table-body');
+            tableBody.innerHTML = '';
+            testCases.forEach(testCase => {
+                const stepsHtml = testCase.steps.length > 0
+                    ? `<ul>${testCase.steps.map(step => `<li>${step.description}: ${step.expected_result}</li>`).join("")}</ul>`
+                    : "No steps";
+
+                tableBody.innerHTML += `
+                    <tr>
+                        <td class="border p-2">${testCase.name}</td>
+                        <td class="border p-2">${testCase.description}</td>
+                        <td class="border p-2">${stepsHtml}</td>
+                        <td class="border p-2">
+                            <button class="bg-red-500 text-white px-2 py-1 rounded-lg mr-2" onclick="deleteTestCase(${testCase.id})">Delete</button>
+                            <button class="bg-yellow-500 text-white px-2 py-1 rounded-lg" onclick="exportTestCase(${testCase.id})">Export to DOC</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        async function deleteTestCase(id) {
+            const response = await fetch(`${apiUrl}/${id}`, { method: 'POST' });
+
+            if (response.ok) {
+                loadTestCases();
+            }
+        }
+
+        async function exportTestCase(id) {
+            window.location.href = `http://127.0.0.1:5000/export/${id}`;
+        }
+
+        loadTestCases();
+    </script>
+</body>
+</html>
