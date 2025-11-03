@@ -28,3 +28,4 @@ EXPOSE 5000
 # Use gunicorn in production
 # App entrypoint is app:app (Flask app object)
 CMD ["gunicorn", "-w", "3", "-k", "gthread", "--threads", "2", "--timeout", "60", "-b", "0.0.0.0:5000", "app:app"]
+
