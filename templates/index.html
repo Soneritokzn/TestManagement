@@ -5,122 +5,945 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Test Management System</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        [x-cloak] { display: none !important; }
+        .dragging { opacity: 0.5; }
+    </style>
 </head>
 <body class="bg-gray-100">
-    <div class="container mx-auto p-4">
-        <h1 class="text-3xl font-bold mb-4">Test Management System</h1>
-
-        <div class="bg-white p-6 rounded-lg shadow-lg mb-6">
-            <h2 class="text-2xl font-semibold mb-4">Create Test Case</h2>
-            <form id="test-case-form">
-                <div class="mb-4">
-                    <label for="name">Name</label>
-                    <input type="text" id="name" class="w-full p-2 border border-gray-300 rounded-lg" required>
-                </div>
-                <div class="mb-4">
-                    <label for="description">Description</label>
-                    <textarea id="description" class="w-full p-2 border border-gray-300 rounded-lg" required></textarea>
-                </div>
-
-                <h2 class="text-xl font-semibold mb-2">Steps</h2>
-                <div id="steps-container"></div>
-
-                <button type="button" id="add-step" class="bg-green-500 text-white px-4 py-2 rounded-lg">Add Step</button>
-                <button type="button" id="save-test-case" class="bg-blue-500 text-white px-4 py-2 rounded-lg mt-4">Save Test Case</button>
-            </form>
+    <div class="container mx-auto p-4 max-w-7xl">
+        <h1 class="text-4xl font-bold mb-6 text-gray-800">Test Management System</h1>
+        
+        <!-- Tabs Navigation -->
+        <div class="mb-6 border-b border-gray-200">
+            <nav class="flex space-x-8">
+                <button onclick="showTab('dashboard')" class="tab-btn py-4 px-1 border-b-2 border-blue-500 font-medium text-sm text-blue-600">Dashboard</button>
+                <button onclick="showTab('testcases')" class="tab-btn py-4 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700">Test Cases</button>
+                <button onclick="showTab('templates')" class="tab-btn py-4 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700">Templates</button>
+                <button onclick="showTab('testruns')" class="tab-btn py-4 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700">Test Runs</button>
+            </nav>
         </div>
 
-        <div id="test-cases-section" class="bg-white p-6 rounded-lg shadow-lg">
-            <h2 class="text-2xl font-semibold mb-4">Saved Test Cases</h2>
-            <table class="w-full border-collapse">
-                <thead>
-                    <tr>
-                        <th class="border p-2">Name</th>
-                        <th class="border p-2">Description</th>
-                        <th class="border p-2">Steps</th>
-                        <th class="border p-2">Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="test-cases-table-body"></tbody>
-            </table>
+        <!-- Dashboard Tab -->
+        <div id="dashboard-tab" class="tab-content">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                <div class="bg-white p-6 rounded-lg shadow">
+                    <h3 class="text-lg font-semibold mb-2">Total Test Cases</h3>
+                    <p id="total-cases" class="text-3xl font-bold text-blue-600">0</p>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow">
+                    <h3 class="text-lg font-semibold mb-2">Status Distribution</h3>
+                    <canvas id="status-chart" class="max-h-40"></canvas>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow">
+                    <h3 class="text-lg font-semibold mb-2">Priority Distribution</h3>
+                    <canvas id="priority-chart" class="max-h-40"></canvas>
+                </div>
+            </div>
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h3 class="text-xl font-semibold mb-4">Recent Executions</h3>
+                <div id="recent-executions" class="space-y-2"></div>
+            </div>
+        </div>
+
+        <!-- Test Cases Tab -->
+        <div id="testcases-tab" class="tab-content hidden">
+            <!-- Filters and Search -->
+            <div class="bg-white p-4 rounded-lg shadow-lg mb-6">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                    <input type="text" id="search-input" placeholder="Search test cases..." class="w-full p-2 border border-gray-300 rounded-lg">
+                    <select id="status-filter" class="w-full p-2 border border-gray-300 rounded-lg">
+                        <option value="">All Statuses</option>
+                        <option value="Not Run">Not Run</option>
+                        <option value="Passed">Passed</option>
+                        <option value="Failed">Failed</option>
+                        <option value="Blocked">Blocked</option>
+                        <option value="Skipped">Skipped</option>
+                    </select>
+                    <select id="priority-filter" class="w-full p-2 border border-gray-300 rounded-lg">
+                        <option value="">All Priorities</option>
+                        <option value="Critical">Critical</option>
+                        <option value="High">High</option>
+                        <option value="Medium">Medium</option>
+                        <option value="Low">Low</option>
+                    </select>
+                    <select id="category-filter" class="w-full p-2 border border-gray-300 rounded-lg">
+                        <option value="">All Categories</option>
+                    </select>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="clearFilters()" class="bg-gray-500 text-white px-4 py-2 rounded-lg">Clear Filters</button>
+                    <button onclick="showBulkActions()" class="bg-purple-500 text-white px-4 py-2 rounded-lg">Bulk Actions</button>
+                    <button onclick="showImportModal()" class="bg-green-600 text-white px-4 py-2 rounded-lg">Import</button>
+                </div>
+            </div>
+
+            <!-- Bulk Actions Panel -->
+            <div id="bulk-actions" class="bg-yellow-50 border border-yellow-200 p-4 rounded-lg mb-6 hidden">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="font-semibold">Selected: <span id="selected-count">0</span> test cases</span>
+                    <button onclick="hideBulkActions()" class="text-gray-600">×</button>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="startTestRun()" class="bg-green-600 text-white px-4 py-2 rounded-lg font-semibold">Start Run</button>
+                    <button onclick="bulkUpdateStatus()" class="bg-blue-500 text-white px-4 py-2 rounded-lg">Update Status</button>
+                    <button onclick="bulkUpdatePriority()" class="bg-blue-500 text-white px-4 py-2 rounded-lg">Update Priority</button>
+                    <button onclick="bulkDelete()" class="bg-red-500 text-white px-4 py-2 rounded-lg">Delete</button>
+                    <button onclick="bulkExport()" class="bg-yellow-500 text-white px-4 py-2 rounded-lg">Export</button>
+                </div>
+            </div>
+
+            <!-- Create/Edit Test Case Modal -->
+            <div id="test-case-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+                <div class="bg-white rounded-lg p-6 max-w-4xl max-h-[90vh] overflow-y-auto w-full mx-4">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-2xl font-semibold" id="modal-title">Create Test Case</h2>
+                        <button onclick="closeModal()" class="text-gray-600 text-2xl">&times;</button>
+                    </div>
+                    <form id="test-case-form">
+                        <input type="hidden" id="edit-id">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label class="block text-gray-700 font-medium mb-2">Name *</label>
+                                <input type="text" id="name" class="w-full p-2 border border-gray-300 rounded-lg" required>
+                            </div>
+                            <div>
+                                <label class="block text-gray-700 font-medium mb-2">Category</label>
+                                <input type="text" id="category" list="categories-list" class="w-full p-2 border border-gray-300 rounded-lg">
+                                <datalist id="categories-list"></datalist>
+                            </div>
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-gray-700 font-medium mb-2">Description *</label>
+                            <textarea id="description" class="w-full p-2 border border-gray-300 rounded-lg" rows="3" required></textarea>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                            <div>
+                                <label class="block text-gray-700 font-medium mb-2">Precondition</label>
+                                <textarea id="precondition" class="w-full p-2 border border-gray-300 rounded-lg" rows="2"></textarea>
+                            </div>
+                            <div>
+                                <label class="block text-gray-700 font-medium mb-2">Postcondition</label>
+                                <textarea id="postcondition" class="w-full p-2 border border-gray-300 rounded-lg" rows="2"></textarea>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                            <div>
+                                <label class="block text-gray-700 font-medium mb-2">Status</label>
+                                <select id="status" class="w-full p-2 border border-gray-300 rounded-lg">
+                                    <option value="Not Run">Not Run</option>
+                                    <option value="Passed">Passed</option>
+                                    <option value="Failed">Failed</option>
+                                    <option value="Blocked">Blocked</option>
+                                    <option value="Skipped">Skipped</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-gray-700 font-medium mb-2">Priority</label>
+                                <select id="priority" class="w-full p-2 border border-gray-300 rounded-lg">
+                                    <option value="Low">Low</option>
+                                    <option value="Medium" selected>Medium</option>
+                                    <option value="High">High</option>
+                                    <option value="Critical">Critical</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-gray-700 font-medium mb-2">Tags (comma-separated)</label>
+                                <input type="text" id="tags" list="tags-list" class="w-full p-2 border border-gray-300 rounded-lg">
+                                <datalist id="tags-list"></datalist>
+                            </div>
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-gray-700 font-medium mb-2">Comment</label>
+                            <textarea id="comment" class="w-full p-2 border border-gray-300 rounded-lg" rows="2"></textarea>
+                        </div>
+                        <div class="mb-4">
+                            <div class="flex justify-between items-center mb-2">
+                                <label class="block text-gray-700 font-medium">Steps</label>
+                                <button type="button" onclick="addStep()" class="bg-green-500 text-white px-3 py-1 rounded-lg text-sm">Add Step</button>
+                            </div>
+                            <div id="steps-container" class="space-y-2"></div>
+                        </div>
+                        <div class="flex justify-end gap-2">
+                            <button type="button" onclick="closeModal()" class="bg-gray-500 text-white px-4 py-2 rounded-lg">Cancel</button>
+                            <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded-lg">Save</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Test Cases List -->
+            <div class="bg-white p-6 rounded-lg shadow-lg">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-semibold">Test Cases</h2>
+                    <button onclick="openCreateModal()" class="bg-blue-500 text-white px-4 py-2 rounded-lg">Create New</button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full border-collapse">
+                        <thead>
+                            <tr class="bg-gray-50">
+                                <th class="border p-2"><input type="checkbox" id="select-all"></th>
+                                <th class="border p-2">Name</th>
+                                <th class="border p-2">Status</th>
+                                <th class="border p-2">Priority</th>
+                                <th class="border p-2">Category</th>
+                                <th class="border p-2">Steps</th>
+                                <th class="border p-2">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="test-cases-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Templates Tab -->
+        <div id="templates-tab" class="tab-content hidden">
+            <div class="bg-white p-6 rounded-lg shadow-lg">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-semibold">Templates</h2>
+                    <button onclick="showTemplateModal()" class="bg-blue-500 text-white px-4 py-2 rounded-lg">Create Template</button>
+                </div>
+                <div id="templates-list"></div>
+            </div>
+        </div>
+
+        <!-- Test Runs Tab -->
+        <div id="testruns-tab" class="tab-content hidden">
+            <div class="bg-white p-6 rounded-lg shadow-lg mb-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-semibold">Test Runs</h2>
+                    <button onclick="showTestRunModal()" class="bg-blue-500 text-white px-4 py-2 rounded-lg">Create Test Run</button>
+                </div>
+                <div id="testruns-list"></div>
+            </div>
+        </div>
+
+        <!-- View Test Case Modal (Read-Only) -->
+        <div id="view-test-case-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+            <div class="bg-white rounded-lg p-6 max-w-4xl max-h-[90vh] overflow-y-auto w-full mx-4">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-semibold" id="view-modal-title">View Test Case</h2>
+                    <button onclick="closeViewModal()" class="text-gray-600 text-2xl">&times;</button>
+                </div>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-2">Description</label>
+                        <p id="view-description" class="p-2 bg-gray-50 rounded-lg"></p>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-gray-700 font-medium mb-2">Precondition</label>
+                            <p id="view-precondition" class="p-2 bg-gray-50 rounded-lg"></p>
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 font-medium mb-2">Postcondition</label>
+                            <p id="view-postcondition" class="p-2 bg-gray-50 rounded-lg"></p>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-gray-700 font-medium mb-2">Status</label>
+                            <span id="view-status" class="px-2 py-1 rounded text-sm"></span>
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 font-medium mb-2">Priority</label>
+                            <span id="view-priority" class="px-2 py-1 rounded text-sm"></span>
+                        </div>
+                        <div>
+                            <label class="block text-gray-700 font-medium mb-2">Category</label>
+                            <p id="view-category" class="p-2 bg-gray-50 rounded-lg"></p>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-2">Tags</label>
+                        <p id="view-tags" class="p-2 bg-gray-50 rounded-lg"></p>
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-2">Comment</label>
+                        <p id="view-comment" class="p-2 bg-gray-50 rounded-lg"></p>
+                    </div>
+                    <div>
+                        <label class="block text-gray-700 font-medium mb-2">Steps</label>
+                        <div id="view-steps-container" class="space-y-2"></div>
+                    </div>
+                </div>
+                <div class="flex justify-end mt-4">
+                    <button onclick="closeViewModal()" class="bg-gray-500 text-white px-4 py-2 rounded-lg">Close</button>
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
-        const apiUrl = 'http://127.0.0.1:5000/testcases';
+        const API_BASE = '/api';
+        let selectedTestCases = new Set();
+        let stepCounter = 0;
 
-        document.getElementById('add-step').addEventListener('click', function () {
-            const stepsContainer = document.getElementById('steps-container');
-            const stepDiv = document.createElement('div');
-            stepDiv.classList.add('mb-2');
-            stepDiv.innerHTML = `
-                <input type="text" class="step-description w-full p-2 border border-gray-300 rounded-lg mb-1" placeholder="Step Description" required>
-                <input type="text" class="step-expected w-full p-2 border border-gray-300 rounded-lg mb-1" placeholder="Expected Result" required>
-            `;
-            stepsContainer.appendChild(stepDiv);
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadDashboard();
+            loadTestCases();
+            loadCategories();
+            loadTags();
+            loadTemplates();
+            loadTestRuns();
+            
+            // Search input
+            document.getElementById('search-input').addEventListener('input', loadTestCases);
+            document.getElementById('status-filter').addEventListener('change', loadTestCases);
+            document.getElementById('priority-filter').addEventListener('change', loadTestCases);
+            document.getElementById('category-filter').addEventListener('change', loadTestCases);
+            
+            // Select all checkbox
+            document.getElementById('select-all').addEventListener('change', (e) => {
+                const checkboxes = document.querySelectorAll('.test-case-checkbox');
+                checkboxes.forEach(cb => {
+                    cb.checked = e.target.checked;
+                    if (e.target.checked) {
+                        selectedTestCases.add(parseInt(cb.value));
+                    } else {
+                        selectedTestCases.delete(parseInt(cb.value));
+                    }
+                });
+                updateSelectedCount();
+            });
+            
+            // Form submit
+            document.getElementById('test-case-form').addEventListener('submit', saveTestCase);
         });
 
-        document.getElementById('save-test-case').addEventListener('click', async function () {
-            const name = document.getElementById('name').value;
-            const description = document.getElementById('description').value;
-
-            const steps = [];
-            document.querySelectorAll('.step-description').forEach((desc, index) => {
-                const expected = document.querySelectorAll('.step-expected')[index].value;
-                steps.push({ description: desc.value, expected_result: expected });
+        // Tab Management
+        function showTab(tab) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(b => {
+                b.classList.remove('border-blue-500', 'text-blue-600');
+                b.classList.add('border-transparent', 'text-gray-500');
             });
+            
+            document.getElementById(`${tab}-tab`).classList.remove('hidden');
+            event.target.classList.remove('border-transparent', 'text-gray-500');
+            event.target.classList.add('border-blue-500', 'text-blue-600');
+            
+            if (tab === 'dashboard') loadDashboard();
+            if (tab === 'testcases') loadTestCases();
+            if (tab === 'templates') loadTemplates();
+            if (tab === 'testruns') loadTestRuns();
+        }
 
-            const response = await fetch(apiUrl, {
-                method: 'POST',
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ name, description, steps })
-            });
-
-            if (response.ok) {
-                loadTestCases();
-                document.getElementById('test-case-form').reset();
-                document.getElementById('steps-container').innerHTML = '';
+        // Dashboard
+        async function loadDashboard() {
+            try {
+                const res = await fetch(`${API_BASE}/dashboard`);
+                const data = await res.json();
+                
+                document.getElementById('total-cases').textContent = data.total_cases;
+                
+                // Status Chart
+                const statusCtx = document.getElementById('status-chart').getContext('2d');
+                new Chart(statusCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: Object.keys(data.status_counts),
+                        datasets: [{
+                            data: Object.values(data.status_counts),
+                            backgroundColor: ['#9CA3AF', '#10B981', '#EF4444', '#F59E0B', '#6366F1']
+                        }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false }
+                });
+                
+                // Priority Chart
+                const priorityCtx = document.getElementById('priority-chart').getContext('2d');
+                new Chart(priorityCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: Object.keys(data.priority_counts),
+                        datasets: [{
+                            data: Object.values(data.priority_counts),
+                            backgroundColor: ['#EF4444', '#F59E0B', '#3B82F6', '#10B981']
+                        }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false }
+                });
+                
+                // Recent Executions
+                const recentEl = document.getElementById('recent-executions');
+                recentEl.innerHTML = data.recent_executions.map(ex => `
+                    <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
+                        <span>${ex.test_case_name}</span>
+                        <span class="px-2 py-1 rounded text-sm ${getStatusColor(ex.status)}">${ex.status}</span>
+                    </div>
+                `).join('');
+            } catch (err) {
+                console.error('Error loading dashboard:', err);
             }
-        });
+        }
 
+        // Test Cases
         async function loadTestCases() {
-            const response = await fetch(apiUrl);
-            const testCases = await response.json();
-
-            const tableBody = document.getElementById('test-cases-table-body');
-            tableBody.innerHTML = '';
-            testCases.forEach(testCase => {
-                const stepsHtml = testCase.steps.length > 0
-                    ? `<ul>${testCase.steps.map(step => `<li>${step.description}: ${step.expected_result}</li>`).join("")}</ul>`
-                    : "No steps";
-
-                tableBody.innerHTML += `
+            try {
+                const search = document.getElementById('search-input').value;
+                const status = document.getElementById('status-filter').value;
+                const priority = document.getElementById('priority-filter').value;
+                const category = document.getElementById('category-filter').value;
+                
+                let url = `${API_BASE}/testcases?`;
+                if (search) url += `search=${encodeURIComponent(search)}&`;
+                if (status) url += `status=${encodeURIComponent(status)}&`;
+                if (priority) url += `priority=${encodeURIComponent(priority)}&`;
+                if (category) url += `category=${encodeURIComponent(category)}&`;
+                
+                const res = await fetch(url);
+                const testCases = await res.json();
+                
+                const tbody = document.getElementById('test-cases-table-body');
+                tbody.innerHTML = testCases.map(tc => `
                     <tr>
-                        <td class="border p-2">${testCase.name}</td>
-                        <td class="border p-2">${testCase.description}</td>
-                        <td class="border p-2">${stepsHtml}</td>
+                        <td class="border p-2"><input type="checkbox" class="test-case-checkbox" value="${tc.id}" onchange="toggleSelection(${tc.id})"></td>
+                        <td class="border p-2 font-medium">${tc.name}</td>
+                        <td class="border p-2"><span class="px-2 py-1 rounded text-sm ${getStatusColor(tc.status)}">${tc.status}</span></td>
+                        <td class="border p-2"><span class="px-2 py-1 rounded text-sm ${getPriorityColor(tc.priority)}">${tc.priority}</span></td>
+                        <td class="border p-2">${tc.category || '-'}</td>
+                        <td class="border p-2">${tc.steps.length} steps</td>
                         <td class="border p-2">
-                            <button class="bg-red-500 text-white px-2 py-1 rounded-lg mr-2" onclick="deleteTestCase(${testCase.id})">Delete</button>
-                            <button class="bg-yellow-500 text-white px-2 py-1 rounded-lg" onclick="exportTestCase(${testCase.id})">Export to DOC</button>
+                            <button onclick="viewTestCase(${tc.id})" class="bg-blue-500 text-white px-2 py-1 rounded text-sm mr-1">View</button>
+                            <button onclick="editTestCase(${tc.id})" class="bg-yellow-500 text-white px-2 py-1 rounded text-sm mr-1">Edit</button>
+                            <button onclick="exportTestCase(${tc.id})" class="bg-green-500 text-white px-2 py-1 rounded text-sm mr-1">Export</button>
+                            <button onclick="deleteTestCase(${tc.id})" class="bg-red-500 text-white px-2 py-1 rounded text-sm">Delete</button>
                         </td>
                     </tr>
-                `;
-            });
+                `).join('');
+            } catch (err) {
+                console.error('Error loading test cases:', err);
+            }
+        }
+
+        function getStatusColor(status) {
+            const colors = {
+                'Not Run': 'bg-gray-200 text-gray-800',
+                'Passed': 'bg-green-200 text-green-800',
+                'Failed': 'bg-red-200 text-red-800',
+                'Blocked': 'bg-yellow-200 text-yellow-800',
+                'Skipped': 'bg-blue-200 text-blue-800'
+            };
+            return colors[status] || 'bg-gray-200 text-gray-800';
+        }
+
+        function getPriorityColor(priority) {
+            const colors = {
+                'Critical': 'bg-red-200 text-red-800',
+                'High': 'bg-orange-200 text-orange-800',
+                'Medium': 'bg-blue-200 text-blue-800',
+                'Low': 'bg-green-200 text-green-800'
+            };
+            return colors[priority] || 'bg-gray-200 text-gray-800';
+        }
+
+        // Modal Management
+        function openCreateModal() {
+            document.getElementById('edit-id').value = '';
+            document.getElementById('modal-title').textContent = 'Create Test Case';
+            document.getElementById('test-case-form').reset();
+            document.getElementById('steps-container').innerHTML = '';
+            stepCounter = 0;
+            document.getElementById('test-case-modal').classList.remove('hidden');
+            document.getElementById('test-case-modal').classList.add('flex');
+        }
+
+        function closeModal() {
+            document.getElementById('test-case-modal').classList.add('hidden');
+            document.getElementById('test-case-modal').classList.remove('flex');
+        }
+
+        function editTestCase(id) {
+            fetch(`${API_BASE}/testcases/${id}`)
+                .then(res => res.json())
+                .then(tc => {
+                    document.getElementById('edit-id').value = tc.id;
+                    document.getElementById('modal-title').textContent = 'Edit Test Case';
+                    document.getElementById('name').value = tc.name;
+                    document.getElementById('description').value = tc.description;
+                    document.getElementById('precondition').value = tc.precondition || '';
+                    document.getElementById('postcondition').value = tc.postcondition || '';
+                    document.getElementById('comment').value = tc.comment || '';
+                    document.getElementById('status').value = tc.status;
+                    document.getElementById('priority').value = tc.priority;
+                    document.getElementById('category').value = tc.category || '';
+                    document.getElementById('tags').value = tc.tags || '';
+                    
+                    document.getElementById('steps-container').innerHTML = '';
+                    stepCounter = 0;
+                    tc.steps.forEach((step, idx) => {
+                        addStepRow(step.id, step.description, step.expected_result, step.actual_result || '', step.order);
+                    });
+                    
+                    document.getElementById('test-case-modal').classList.remove('hidden');
+                    document.getElementById('test-case-modal').classList.add('flex');
+                });
+        }
+
+        function addStep() {
+            addStepRow(null, '', '', '', stepCounter++);
+        }
+
+        function addStepRow(id, description, expected, actual, order) {
+            const container = document.getElementById('steps-container');
+            const stepDiv = document.createElement('div');
+            stepDiv.className = 'border p-3 rounded-lg bg-gray-50';
+            stepDiv.innerHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-2 mb-2">
+                    <div>
+                        <label class="text-sm text-gray-600">Description</label>
+                        <input type="text" class="step-desc w-full p-2 border border-gray-300 rounded-lg" value="${description}" required>
+                    </div>
+                    <div>
+                        <label class="text-sm text-gray-600">Expected Result</label>
+                        <input type="text" class="step-expected w-full p-2 border border-gray-300 rounded-lg" value="${expected}" required>
+                    </div>
+                    <div>
+                        <label class="text-sm text-gray-600">Actual Result</label>
+                        <input type="text" class="step-actual w-full p-2 border border-gray-300 rounded-lg" value="${actual}">
+                    </div>
+                </div>
+                <button type="button" onclick="removeStep(this)" class="bg-red-500 text-white px-3 py-1 rounded text-sm">Remove</button>
+            `;
+            if (id) stepDiv.dataset.stepId = id;
+            stepDiv.dataset.order = order;
+            container.appendChild(stepDiv);
+        }
+
+        function removeStep(btn) {
+            btn.parentElement.remove();
+        }
+
+        async function saveTestCase(e) {
+            e.preventDefault();
+            const formData = {
+                name: document.getElementById('name').value,
+                description: document.getElementById('description').value,
+                precondition: document.getElementById('precondition').value,
+                postcondition: document.getElementById('postcondition').value,
+                comment: document.getElementById('comment').value,
+                status: document.getElementById('status').value,
+                priority: document.getElementById('priority').value,
+                category: document.getElementById('category').value,
+                tags: document.getElementById('tags').value,
+                steps: Array.from(document.getElementById('steps-container').children).map((stepEl, idx) => ({
+                    id: stepEl.dataset.stepId,
+                    description: stepEl.querySelector('.step-desc').value,
+                    expected_result: stepEl.querySelector('.step-expected').value,
+                    actual_result: stepEl.querySelector('.step-actual').value,
+                    order: idx
+                }))
+            };
+            
+            const editId = document.getElementById('edit-id').value;
+            const url = editId ? `${API_BASE}/testcases/${editId}` : `${API_BASE}/testcases`;
+            const method = editId ? 'PUT' : 'POST';
+            
+            try {
+                const res = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                });
+                if (res.ok) {
+                    closeModal();
+                    loadTestCases();
+                    loadDashboard();
+                }
+            } catch (err) {
+                console.error('Error saving test case:', err);
+                alert('Error saving test case');
+            }
         }
 
         async function deleteTestCase(id) {
-            const response = await fetch(`${apiUrl}/${id}`, { method: 'POST' });
-
-            if (response.ok) {
-                loadTestCases();
+            if (confirm('Are you sure you want to delete this test case?')) {
+                try {
+                    const res = await fetch(`${API_BASE}/testcases/${id}`, { method: 'DELETE' });
+                    if (res.ok) {
+                        loadTestCases();
+                        loadDashboard();
+                    }
+                } catch (err) {
+                    console.error('Error deleting test case:', err);
+                }
             }
         }
 
         async function exportTestCase(id) {
-            window.location.href = `http://127.0.0.1:5000/export/${id}`;
+            window.location.href = `${API_BASE}/export/${id}`;
         }
 
-        loadTestCases();
+        function viewTestCase(id) {
+            // Open detail view modal (read-only)
+            fetch(`${API_BASE}/testcases/${id}`)
+                .then(res => res.json())
+                .then(tc => {
+                    document.getElementById('view-modal-title').textContent = tc.name;
+                    document.getElementById('view-description').textContent = tc.description || '';
+                    document.getElementById('view-precondition').textContent = tc.precondition || '';
+                    document.getElementById('view-postcondition').textContent = tc.postcondition || '';
+                    document.getElementById('view-comment').textContent = tc.comment || '';
+                    document.getElementById('view-status').textContent = tc.status;
+                    document.getElementById('view-status').className = `px-2 py-1 rounded text-sm ${getStatusColor(tc.status)}`;
+                    document.getElementById('view-priority').textContent = tc.priority;
+                    document.getElementById('view-priority').className = `px-2 py-1 rounded text-sm ${getPriorityColor(tc.priority)}`;
+                    document.getElementById('view-category').textContent = tc.category || '-';
+                    document.getElementById('view-tags').textContent = tc.tags || '-';
+                    
+                    const stepsContainer = document.getElementById('view-steps-container');
+                    stepsContainer.innerHTML = tc.steps.map((step, idx) => `
+                        <div class="border p-3 rounded-lg mb-2 bg-gray-50">
+                            <div class="font-semibold mb-2">Step ${idx + 1}</div>
+                            <div class="mb-2"><strong>Description:</strong> ${step.description}</div>
+                            <div class="mb-2"><strong>Expected Result:</strong> ${step.expected_result}</div>
+                            <div><strong>Actual Result:</strong> ${step.actual_result || 'Not yet executed'}</div>
+                        </div>
+                    `).join('');
+                    
+                    document.getElementById('view-test-case-modal').classList.remove('hidden');
+                    document.getElementById('view-test-case-modal').classList.add('flex');
+                });
+        }
+
+        function closeViewModal() {
+            document.getElementById('view-test-case-modal').classList.add('hidden');
+            document.getElementById('view-test-case-modal').classList.remove('flex');
+        }
+
+        // Bulk Operations
+        function toggleSelection(id) {
+            const checkbox = document.querySelector(`.test-case-checkbox[value="${id}"]`);
+            if (checkbox.checked) {
+                selectedTestCases.add(id);
+            } else {
+                selectedTestCases.delete(id);
+            }
+            updateSelectedCount();
+        }
+
+        function updateSelectedCount() {
+            document.getElementById('selected-count').textContent = selectedTestCases.size;
+            document.getElementById('bulk-actions').classList.toggle('hidden', selectedTestCases.size === 0);
+        }
+
+        function showBulkActions() {
+            if (selectedTestCases.size > 0) {
+                document.getElementById('bulk-actions').classList.remove('hidden');
+            }
+        }
+
+        function hideBulkActions() {
+            selectedTestCases.clear();
+            document.querySelectorAll('.test-case-checkbox').forEach(cb => cb.checked = false);
+            document.getElementById('select-all').checked = false;
+            updateSelectedCount();
+        }
+
+        async function bulkDelete() {
+            if (selectedTestCases.size === 0) return;
+            if (!confirm(`Delete ${selectedTestCases.size} test cases?`)) return;
+            
+            try {
+                const res = await fetch(`${API_BASE}/testcases/bulk`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'delete',
+                        test_case_ids: Array.from(selectedTestCases)
+                    })
+                });
+                if (res.ok) {
+                    hideBulkActions();
+                    loadTestCases();
+                    loadDashboard();
+                }
+            } catch (err) {
+                console.error('Error bulk deleting:', err);
+            }
+        }
+
+        async function bulkUpdateStatus() {
+            const status = prompt('Enter new status (Not Run, Passed, Failed, Blocked, Skipped):');
+            if (!status) return;
+            
+            try {
+                const res = await fetch(`${API_BASE}/testcases/bulk`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'update_status',
+                        test_case_ids: Array.from(selectedTestCases),
+                        status: status
+                    })
+                });
+                if (res.ok) {
+                    hideBulkActions();
+                    loadTestCases();
+                    loadDashboard();
+                }
+            } catch (err) {
+                console.error('Error bulk updating status:', err);
+            }
+        }
+
+        async function bulkUpdatePriority() {
+            const priority = prompt('Enter new priority (Critical, High, Medium, Low):');
+            if (!priority) return;
+            
+            try {
+                const res = await fetch(`${API_BASE}/testcases/bulk`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'update_priority',
+                        test_case_ids: Array.from(selectedTestCases),
+                        priority: priority
+                    })
+                });
+                if (res.ok) {
+                    hideBulkActions();
+                    loadTestCases();
+                }
+            } catch (err) {
+                console.error('Error bulk updating priority:', err);
+            }
+        }
+
+        async function bulkExport() {
+            try {
+                const res = await fetch(`${API_BASE}/export/bulk`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        test_case_ids: Array.from(selectedTestCases)
+                    })
+                });
+                if (res.ok) {
+                    const blob = await res.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'bulk_export.docx';
+                    a.click();
+                }
+            } catch (err) {
+                console.error('Error bulk exporting:', err);
+            }
+        }
+
+        function clearFilters() {
+            document.getElementById('search-input').value = '';
+            document.getElementById('status-filter').value = '';
+            document.getElementById('priority-filter').value = '';
+            document.getElementById('category-filter').value = '';
+            loadTestCases();
+        }
+
+        function showImportModal() {
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.accept = '.xlsx,.xls,.csv';
+            fileInput.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                try {
+                    const res = await fetch(`${API_BASE}/import`, {
+                        method: 'POST',
+                        body: formData
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        alert(data.message);
+                        loadTestCases();
+                        loadDashboard();
+                    }
+                } catch (err) {
+                    console.error('Error importing:', err);
+                    alert('Error importing file');
+                }
+            };
+            fileInput.click();
+        }
+
+        // Categories and Tags
+        async function loadCategories() {
+            try {
+                const res = await fetch(`${API_BASE}/categories`);
+                const categories = await res.json();
+                const datalist = document.getElementById('categories-list');
+                datalist.innerHTML = categories.map(cat => `<option value="${cat}">`).join('');
+                
+                const filter = document.getElementById('category-filter');
+                filter.innerHTML = '<option value="">All Categories</option>' + 
+                    categories.map(cat => `<option value="${cat}">${cat}</option>`).join('');
+            } catch (err) {
+                console.error('Error loading categories:', err);
+            }
+        }
+
+        async function loadTags() {
+            try {
+                const res = await fetch(`${API_BASE}/tags`);
+                const tags = await res.json();
+                const datalist = document.getElementById('tags-list');
+                datalist.innerHTML = tags.map(tag => `<option value="${tag}">`).join('');
+            } catch (err) {
+                console.error('Error loading tags:', err);
+            }
+        }
+
+        // Templates
+        async function loadTemplates() {
+            try {
+                const res = await fetch(`${API_BASE}/templates`);
+                const templates = await res.json();
+                const listEl = document.getElementById('templates-list');
+                listEl.innerHTML = templates.map(t => `
+                    <div class="border p-4 rounded-lg mb-4">
+                        <h3 class="font-semibold">${t.name}</h3>
+                        <p class="text-sm text-gray-600">${t.description || ''}</p>
+                        <p class="text-xs text-gray-500 mt-2">${t.steps.length} steps</p>
+                        <button onclick="useTemplate(${t.id})" class="bg-blue-500 text-white px-3 py-1 rounded text-sm mt-2">Use Template</button>
+                        <button onclick="deleteTemplate(${t.id})" class="bg-red-500 text-white px-3 py-1 rounded text-sm mt-2 ml-2">Delete</button>
+                    </div>
+                `).join('');
+            } catch (err) {
+                console.error('Error loading templates:', err);
+            }
+        }
+
+        function showTemplateModal() {
+            alert('Template creation UI - similar to test case creation');
+        }
+
+        function useTemplate(id) {
+            fetch(`${API_BASE}/templates`)
+                .then(res => res.json())
+                .then(templates => {
+                    const template = templates.find(t => t.id === id);
+                    if (template) {
+                        openCreateModal();
+                        document.getElementById('name').value = template.name;
+                        document.getElementById('description').value = template.description || '';
+                        document.getElementById('precondition').value = template.precondition || '';
+                        document.getElementById('postcondition').value = template.postcondition || '';
+                        template.steps.forEach(step => {
+                            addStepRow(null, step.description, step.expected_result, '', step.order);
+                        });
+                    }
+                });
+        }
+
+        async function deleteTemplate(id) {
+            if (confirm('Delete this template?')) {
+                try {
+                    const res = await fetch(`${API_BASE}/templates/${id}`, { method: 'DELETE' });
+                    if (res.ok) {
+                        loadTemplates();
+                    }
+                } catch (err) {
+                    console.error('Error deleting template:', err);
+                }
+            }
+        }
+
+        // Test Runs
+        async function loadTestRuns() {
+            try {
+                const res = await fetch(`${API_BASE}/testruns`);
+                const runs = await res.json();
+                const listEl = document.getElementById('testruns-list');
+                listEl.innerHTML = runs.map(run => `
+                    <div class="border p-4 rounded-lg mb-4">
+                        <div class="flex justify-between items-start">
+                            <div class="flex-1">
+                                <h3 class="font-semibold">${run.name}</h3>
+                                <p class="text-sm text-gray-600">${run.description || ''}</p>
+                                <p class="text-xs text-gray-500 mt-2">${run.executions_count} executions</p>
+                            </div>
+                            <div class="flex gap-2 ml-4">
+                                <button onclick="viewTestRun(${run.id})" class="bg-blue-500 text-white px-3 py-1 rounded text-sm">View</button>
+                                <button onclick="deleteTestRun(${run.id})" class="bg-red-500 text-white px-3 py-1 rounded text-sm">Delete</button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (err) {
+                console.error('Error loading test runs:', err);
+            }
+        }
+
+        async function deleteTestRun(id) {
+            if (!confirm('Are you sure you want to delete this test run? All executions will be deleted.')) {
+                return;
+            }
+            
+            try {
+                const res = await fetch(`${API_BASE}/testruns/${id}`, { method: 'DELETE' });
+                if (res.ok) {
+                    loadTestRuns();
+                    alert('Test run deleted successfully');
+                } else {
+                    alert('Error deleting test run');
+                }
+            } catch (err) {
+                console.error('Error deleting test run:', err);
+                alert('Error deleting test run');
+            }
+        }
+
+        async function startTestRun() {
+            if (selectedTestCases.size === 0) {
+                alert('Please select at least one test case');
+                return;
+            }
+            
+            const name = prompt('Enter Test Run name:');
+            if (!name) return;
+            
+            const description = prompt('Enter Test Run description (optional):') || '';
+            
+            try {
+                const res = await fetch(`${API_BASE}/testruns`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: name,
+                        description: description,
+                        test_case_ids: Array.from(selectedTestCases)
+                    })
+                });
+                
+                if (res.ok) {
+                    const data = await res.json();
+                    hideBulkActions();
+                    // Navigate to test run execution page
+                    window.location.href = `/testrun/${data.id}`;
+                } else {
+                    alert('Error creating test run');
+                }
+            } catch (err) {
+                console.error('Error creating test run:', err);
+                alert('Error creating test run');
+            }
+        }
+
+        function showTestRunModal() {
+            alert('Select test cases and click "Start Run" button to create a test run');
+        }
+
+        function viewTestRun(id) {
+            window.location.href = `/testrun/${id}`;
+        }
     </script>
 </body>
 </html>
